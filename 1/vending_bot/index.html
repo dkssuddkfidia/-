@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자판기 제품 관리</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .status {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .status.online {
+            background: #2d7d46;
+        }
+
+        .status.offline {
+            background: #a12d2a;
+        }
+
+        .add-section {
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .add-section h2 {
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background: #3a3a3a;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: 2px solid #5865F2;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .btn-add {
+            background: #5865F2;
+            color: white;
+        }
+
+        .btn-add:hover {
+            background: #4752C4;
+        }
+
+        .btn-delete {
+            background: #ED4245;
+            color: white;
+            padding: 8px 12px;
+            width: auto;
+        }
+
+        .btn-delete:hover {
+            background: #C03537;
+        }
+
+        .products-section {
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 10px;
+        }
+
+        .products-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .products-header h2 {
+            font-size: 1.3em;
+        }
+
+        .product-item {
+            background: #3a3a3a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .product-info h3 {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .product-details {
+            color: #b9bbbe;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .stars {
+            display: inline-block;
+        }
+
+        .star {
+            color: #ffc107;
+            font-size: 16px;
+        }
+
+        .star.empty {
+            color: #555;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 자판기 제품 관리</h1>
+
+        <div class="status offline" id="status">
+            🔄 서버 연결 확인 중...
+        </div>
+
+        <!-- 제품 추가 섹션 -->
+        <div class="add-section">
+            <h2>➕ 제품 추가</h2>
+            <div class="form-grid">
+                <input type="text" id="productName" placeholder="제품명">
+                <input type="number" id="productPrice" placeholder="가격 (원)">
+                <input type="number" id="productStock" placeholder="재고 수량">
+                <select id="productRating">
+                    <option value="1">별점: ⭐</option>
+                    <option value="2">별점: ⭐⭐</option>
+                    <option value="3">별점: ⭐⭐⭐</option>
+                    <option value="4">별점: ⭐⭐⭐⭐</option>
+                    <option value="5" selected>별점: ⭐⭐⭐⭐⭐</option>
+                </select>
+            </div>
+            <button class="btn btn-add" onclick="addProduct()">➕ 제품 추가</button>
+        </div>
+
+        <!-- 제품 목록 섹션 -->
+        <div class="products-section">
+            <div class="products-header">
+                <h2>📦 제품 목록 (<span id="productCount">0</span>개)</h2>
+            </div>
+            <div id="productList"></div>
+        </div>
+    </div>
+
+    <script>
+        let products = [];
+        const API_URL = 'http://localhost:5000/products';
+
+        // 페이지 로드시 서버에서 제품 불러오기
+        window.onload = async function() {
+            await loadProducts();
+        };
+
+        // 서버에서 제품 불러오기
+        async function loadProducts() {
+            try {
+                const response = await fetch(API_URL);
+                if (response.ok) {
+                    products = await response.json();
+                    updateStatus('online', `✅ 서버 연결됨 | ${products.length}개 제품 로드됨`);
+                    renderProducts();
+                } else {
+                    updateStatus('offline', '❌ 서버 연결 실패 - server.py를 실행하세요');
+                }
+            } catch (error) {
+                updateStatus('offline', '❌ 서버 연결 실패 - server.py를 실행하세요');
+            }
+        }
+
+        // 서버에 제품 저장 (data/products.json에 직접 저장됨)
+        async function saveProducts() {
+            try {
+                updateStatus('online', '🔄 저장 중...');
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(products)
+                });
+
+                if (response.ok) {
+                    updateStatus('online', `✅ 저장 완료! data/products.json에 ${products.length}개 제품 저장됨`);
+                    return true;
+                } else {
+                    updateStatus('offline', '❌ 저장 실패');
+                    return false;
+                }
+            } catch (error) {
+                updateStatus('offline', '❌ 서버 연결 오류');
+                return false;
+            }
+        }
+
+        // 상태 업데이트
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status ' + type;
+            statusEl.textContent = message;
+        }
+
+        // 제품 추가
+        async function addProduct() {
+            const name = document.getElementById('productName').value.trim();
+            const price = document.getElementById('productPrice').value;
+            const stock = document.getElementById('productStock').value;
+            const rating = document.getElementById('productRating').value;
+
+            if (!name || !price || !stock) {
+                alert('❌ 모든 필드를 입력해주세요!');
+                return;
+            }
+
+            const product = {
+                id: Date.now(),
+                name: name,
+                price: parseInt(price),
+                stock: parseInt(stock),
+                rating: parseInt(rating)
+            };
+
+            products.push(product);
+            
+            const saved = await saveProducts();
+            
+            if (saved) {
+                renderProducts();
+                document.getElementById('productName').value = '';
+                document.getElementById('productPrice').value = '';
+                document.getElementById('productStock').value = '';
+                document.getElementById('productRating').value = '5';
+            } else {
+                products.pop();
+                alert('❌ 저장 실패! server.py를 실행하세요.');
+            }
+        }
+
+        // 제품 삭제
+        async function deleteProduct(id) {
+            const product = products.find(p => p.id === id);
+            if (!confirm(`"${product.name}" 제품을 삭제하시겠습니까?`)) {
+                return;
+            }
+            
+            products = products.filter(p => p.id !== id);
+            await saveProducts();
+            renderProducts();
+        }
+
+        // 별점 표시
+        function getStars(rating) {
+            let html = '';
+            for (let i = 1; i <= 5; i++) {
+                html += `<span class="star ${i <= rating ? '' : 'empty'}">★</span>`;
+            }
+            return html;
+        }
+
+        // 제품 목록 렌더링
+        function renderProducts() {
+            const listEl = document.getElementById('productList');
+            const countEl = document.getElementById('productCount');
+
+            countEl.textContent = products.length;
+
+            if (products.length === 0) {
+                listEl.innerHTML = '<div class="empty-state">추가된 제품이 없습니다.</div>';
+                return;
+            }
+
+            listEl.innerHTML = products.map(p => `
+                <div class="product-item">
+                    <div class="product-info">
+                        <h3>${p.name}</h3>
+                        <div class="product-details">
+                            재고: ${p.stock}개 | 별점: <span class="stars">${getStars(p.rating)}</span>
+                        </div>
+                        <div class="product-details">
+                            가격: ${p.price.toLocaleString()}원
+                        </div>
+                    </div>
+                    <button class="btn btn-delete" onclick="deleteProduct(${p.id})">🗑️ 삭제</button>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

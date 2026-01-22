@@ -1,0 +1,14 @@
+{
+  "vip": {
+    "name": "VIP 역할",
+    "price": 1000,
+    "type": "role",
+    "value": 123456789012345678
+  },
+  "key": {
+    "name": "게임 키",
+    "price": 500,
+    "type": "text",
+    "value": "ABC-123-XYZ"
+  }
+}
